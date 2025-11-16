@@ -1,92 +1,159 @@
-import React, { useState } from "react";
+import React from "react";
 
-export default function ScheduleGrid({ selectedCourses, schedules = [] }) {
+// fallback color function in case none is passed from CourseSearch
+function defaultGetCourseColor(course) {
+  const colors = [
+    "#A7F3D0", // mint
+    "#BFDBFE", // light blue
+    "#FBCFE8", // pink
+    "#FDE68A", // yellow
+    "#C7D2FE", // soft indigo
+    "#FCA5A5", // soft red
+    "#FDBA74", // orange
+  ];
+
+  let hash = 0;
+  for (let i = 0; i < course.length; i++) {
+    hash = course.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
+
+export default function ScheduleGrid({ selectedCourses = [], getCourseColor }) {
   const days = ["MON", "TUE", "WED", "THU", "FRI"];
 
-  // 8:00–21:00 with 30-min steps
+  // if parent passed getCourseColor, use that, otherwise use fallback
+  const colorForCourse = getCourseColor || defaultGetCourseColor;
+
+  // 8:00–21:00 in 30-min steps
   const times = [];
   for (let hour = 8; hour <= 21; hour++) {
-    times.push(`${hour}:00`);
-    if (hour !== 21) times.push(`${hour}:30`);
+    const hh = hour.toString().padStart(2, "0");
+    times.push(`${hh}:00`);
+    if (hour !== 21) times.push(`${hh}:30`);
   }
 
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const hasSchedules = schedules && schedules.length > 0;
+  const rowOffset = 2; // row 1 = headers, row 2 = 8:00
 
-  const handlePrev = () => {
-    if (!hasSchedules) return;
-    setCurrentIndex((prev) => (prev - 1 + schedules.length) % schedules.length);
+  const timeToIndex = (timeStr) => {
+    const [h, m] = timeStr.split(":").map(Number);
+    return (h - 8) * 2 + (m === 30 ? 1 : 0); // 8:00 -> 0
   };
 
-  const handleNext = () => {
-    if (!hasSchedules) return;
-    setCurrentIndex((prev) => (prev + 1) % schedules.length);
-  };
+  // simple fake slots just so you can SEE where courses will go
+  const slotTemplates = [
+    { day: "MON", start: "09:00", end: "10:30" },
+    { day: "TUE", start: "10:00", end: "11:30" },
+    { day: "WED", start: "11:00", end: "12:30" },
+    { day: "THU", start: "13:00", end: "14:30" },
+    { day: "FRI", start: "09:30", end: "11:00" },
+    { day: "MON", start: "14:00", end: "15:30" },
+    { day: "WED", start: "15:00", end: "16:30" },
+  ];
+
+  // one block per selected course (just for preview)
+  const activeBlocks = selectedCourses.map((course, i) => {
+    const slot = slotTemplates[i % slotTemplates.length];
+    return {
+      course,
+      day: slot.day,
+      start: slot.start,
+      end: slot.end,
+    };
+  });
 
   return (
     <div style={styles.container}>
-      {/* Top controls: previous / next schedule */}
+      {/* header / arrows (static for now) */}
       <div style={styles.controls}>
-  <button
-    type="button"
-    style={styles.arrowButton}
-    onClick={handlePrev}
-    disabled={!hasSchedules}
-  >
-    ❮
-  </button>
+        <button type="button" style={styles.arrowButton} disabled>
+          ❮
+        </button>
+        <span style={styles.scheduleLabel}>
+          {activeBlocks.length > 0 ? "Preview schedule" : "No schedules generated yet"}
+        </span>
+        <button type="button" style={styles.arrowButton} disabled>
+          ❯
+        </button>
+      </div>
 
-  <span style={styles.scheduleLabel}>
-  {hasSchedules
-    ? `${currentIndex + 1} / ${schedules.length}`
-    : "No schedules generated yet"}
-</span>
-
-
-  <button
-    type="button"
-    style={styles.arrowButton}
-    onClick={handleNext}
-    disabled={!hasSchedules}
-  >
-    ❯
-  </button>
-</div>
-
-
-      {/* (optional) show selected courses for now */}
-      {selectedCourses && selectedCourses.length > 0 && (
-        <div style={styles.debugText}>
-          Selected: {selectedCourses.join(", ")}
-        </div>
-      )}
-
-      {/* Calendar grid */}
       <div style={styles.grid}>
-        {/* top-left empty corner */}
-        <div style={styles.emptyCorner}></div>
+        {/* top-left corner */}
+        <div
+          style={{
+            ...styles.emptyCorner,
+            gridRow: 1,
+            gridColumn: 1,
+          }}
+        ></div>
 
         {/* day headers */}
-        {days.map((day) => (
-          <div key={day} style={styles.dayHeader}>
+        {days.map((day, colIndex) => (
+          <div
+            key={day}
+            style={{
+              ...styles.dayHeader,
+              gridRow: 1,
+              gridColumn: colIndex + 2,
+            }}
+          >
             {day}
           </div>
         ))}
 
-        {/* time labels + grid cells */}
-        {times.map((time) => (
-          <React.Fragment key={time}>
-            {/* time label column */}
-            <div style={styles.timeLabel}>
-              {time.endsWith(":00") ? time : ""}
-            </div>
+        {/* time labels & empty cells */}
+        {times.map((time, rowIndex) => {
+          const gridRow = rowIndex + rowOffset;
+          return (
+            <React.Fragment key={time}>
+              {/* time label on the left */}
+              <div
+                style={{
+                  ...styles.timeLabel,
+                  gridRow,
+                  gridColumn: 1,
+                }}
+              >
+                {time.endsWith(":00") ? time : ""}
+              </div>
 
-            {/* 5 cells for Mon–Fri */}
-            {days.map((day) => (
-              <div key={day + time} style={styles.cell}></div>
-            ))}
-          </React.Fragment>
-        ))}
+              {/* cells for each day */}
+              {days.map((day, colIndex) => (
+                <div
+                  key={day + time}
+                  style={{
+                    ...styles.cell,
+                    gridRow,
+                    gridColumn: colIndex + 2,
+                  }}
+                ></div>
+              ))}
+            </React.Fragment>
+          );
+        })}
+
+        {/* course blocks */}
+        {activeBlocks.map((block, idx) => {
+          const dayIndex = days.indexOf(block.day);
+          if (dayIndex === -1) return null;
+
+          const rowStart = timeToIndex(block.start) + rowOffset;
+          const rowEnd = timeToIndex(block.end) + rowOffset;
+
+          return (
+            <div
+              key={block.course + idx}
+              style={{
+                ...styles.block,
+                gridColumn: `${dayIndex + 2} / ${dayIndex + 3}`,
+                gridRow: `${rowStart} / ${rowEnd}`,
+                backgroundColor: colorForCourse(block.course), // 🔥 match chip color
+              }}
+            >
+              {block.course}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -97,15 +164,6 @@ const styles = {
     width: "100%",
     overflow: "auto",
   },
-
-  controls: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 16,
-    marginBottom: 8,
-  },
-
   controls: {
     display: "flex",
     alignItems: "center",
@@ -114,61 +172,47 @@ const styles = {
     marginBottom: 12,
     padding: "6px 0",
   },
-  
   arrowButton: {
     border: "none",
     backgroundColor: "transparent",
-    cursor: "pointer",
-    fontSize: "32px",
-    padding: "4px 10px",
-    color: "#9ca3af",
-    transition: "0.15s ease",     
+    cursor: "default",
+    fontSize: "28px",
+    padding: "2px 8px",
+    color: "#d1d5db",
   },
-  
   scheduleLabel: {
     fontSize: "18px",
     fontWeight: 600,
     color: "#374151",
   },
-  
-
-  debugText: {
-    fontSize: "12px",
-    color: "#6b7280",
-    marginBottom: 6,
-    textAlign: "center",
-  },
-
   grid: {
     display: "grid",
     gridTemplateColumns: "80px repeat(5, 1fr)",
+    gridAutoRows: "30px",
     width: "100%",
     borderTop: "1px solid #d4d4d8",
     borderLeft: "1px solid #d4d4d8",
-    backgroundColor: "#f9fafb",
+    backgroundColor: "#ffffff",
     borderRadius: "16px",
     overflow: "hidden",
-    boxShadow: "0 10px 24px rgba(15,23,42,0.25)",
+    boxShadow: "0 10px 24px rgba(15,23,42,0.15)",
   },
   emptyCorner: {
-    height: "40px",
     borderRight: "1px solid #d4d4d8",
     borderBottom: "1px solid #d4d4d8",
     backgroundColor: "#f3f4f6",
   },
-  
   dayHeader: {
     textAlign: "center",
     fontWeight: 600,
     padding: "10px 0",
-    backgroundColor: "#f3f4f6",
     borderRight: "1px solid #d4d4d8",
     borderBottom: "1px solid #d4d4d8",
+    backgroundColor: "#f3f4f6",
     color: "#1f2933",
     fontSize: "13px",
     letterSpacing: "0.05em",
   },
-  
   timeLabel: {
     borderRight: "1px solid #d4d4d8",
     borderBottom: "1px solid #e5e7eb",
@@ -177,12 +221,22 @@ const styles = {
     color: "#4b5563",
     display: "flex",
     alignItems: "center",
-    backgroundColor: "#f3f4f6",
+    backgroundColor: "#ffffff",
   },
   cell: {
-    height: "30px",
     borderRight: "1px solid #f3f4f6",
     borderBottom: "1px solid #f3f4f6",
     backgroundColor: "#ffffff",
+  },
+  block: {
+    color: "#111827",
+    fontSize: "11px",
+    padding: "4px 6px",
+    borderRadius: "10px",
+    margin: "2px",
+    boxShadow: "0 4px 8px rgba(15,23,42,0.25)",
+    overflow: "hidden",
+    display: "flex",
+    alignItems: "center",
   },
 };
