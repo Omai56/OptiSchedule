@@ -83,7 +83,14 @@ function generateScheduleArrays(selectedCourses) {
 function optimizeSchedules(selectedCourses) {
   const all = generateScheduleArrays(selectedCourses);
   console.log(`Generated ${all.length} valid schedules`);
-  return all.slice(0, 5);
+
+  // ---- Fisher–Yates Shuffle ----
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [all[i], all[j]] = [all[j], all[i]];
+  }
+
+  return all.slice(0, 20);  // return random 20
 }
 
 // ---- expose to window ----
