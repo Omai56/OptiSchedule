@@ -5,7 +5,6 @@ function timeToMinutes(timeStr) {
   return hour * 60 + min;
 }
 
-// UBC classes end 10 mins early so time intervals are open (no equality conflict)
 function timeHasConflict(Start1, End1, Start2, End2) {
   const s1 = timeToMinutes(Start1);
   const e1 = timeToMinutes(End1);
@@ -31,17 +30,6 @@ function checkAllConflicts(arr) {
   return true;
 }
 
-// full conflict check among every selected section
-function checkAllConflicts(selectedArray) {
-  for (let i = 0; i < selectedArray.length; i++) {
-    for (let j = i + 1; j < selectedArray.length; j++) {
-      if (hasConflict(selectedArray[i], selectedArray[j])) return false;
-    }
-  }
-  return true;
-}
-
-// ---- validate schedule ----
 function validateSchedule(selected) {
   return checkAllConflicts(selected) ? "Valid schedule!" : "Invalid";
 }

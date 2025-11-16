@@ -58,8 +58,7 @@ function validateSchedule(selected) {
 }
 
 // ---- generate schedules ----
-function generateScheduleArrays() {
-  const courseNames = Object.keys(courseData);
+function generateScheduleArrays(selectedCourses) {
   const results = [];
 
   function backtrack(index, current) {
